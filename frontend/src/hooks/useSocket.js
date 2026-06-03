@@ -17,7 +17,7 @@ export function useSocket() {
     }
 
     if (!socketInstance) {
-      socketInstance = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+      socketInstance = io(import.meta.env.VITE_API_URL || 'https://kashdev-a-developers-community.onrender.com', {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,

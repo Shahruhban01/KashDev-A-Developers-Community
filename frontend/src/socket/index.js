@@ -5,7 +5,7 @@ let socket = null
 export const initSocket = (token) => {
   if (socket?.connected) return socket
 
-  socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+  socket = io(import.meta.env.VITE_API_URL || 'https://kashdev-a-developers-community.onrender.com', {
     auth: { token },
     transports: ['websocket'],
     reconnectionAttempts: 5,
