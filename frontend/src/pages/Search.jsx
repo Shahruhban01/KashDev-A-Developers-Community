@@ -34,15 +34,15 @@ export default function Search() {
     const debouncedQuery = useDebounce(query, 300)
 
     useEffect(() => {
-        api.get('/search/trending').then(r => setTrending(r.data.data)).catch(() => { })
+        api.get('/search/trending').then(r => setTrending(r.data?.data ?? [])).catch(() => setTrending([]))
     }, [])
 
     // Fetch suggestions on typing
     useEffect(() => {
-        if (debouncedQuery.length >= 2) {
+        if ((debouncedQuery ?? '').length >= 2) {
             api.get('/search/suggest', { params: { q: debouncedQuery } })
-                .then(r => setSuggestions(r.data.data))
-                .catch(() => { })
+                .then(r => setSuggestions(r.data?.data ?? []))
+                .catch(() => setSuggestions([]))
         } else {
             setSuggestions([])
         }
@@ -63,13 +63,18 @@ export default function Search() {
         setShowSuggestions(false)
         try {
             const { data } = await api.get('/search', { params: { q } })
-            setResults(data.data || [])
-            setIntent(data.intent)
-            setPagination(data.pagination)
+            setResults(data.data ?? [])
+            setIntent(data.intent ?? null)
+            setPagination(data.pagination ?? null)
             // Fetch related
             const rel = await api.get('/search/related', { params: { q } })
-            setRelated(rel.data.data || [])
-        } catch { setResults([]) }
+            setRelated(rel.data?.data ?? [])
+        } catch {
+            setResults([])
+            setIntent(null)
+            setRelated([])
+            setPagination(null)
+        }
         finally { setLoading(false) }
     }
 
@@ -175,10 +180,10 @@ export default function Search() {
                     {/* Intent chips */}
                     {intent && (
                         <div className="flex flex-wrap gap-2 mb-5">
-                            {intent.skills.map(s => <span key={s} className="badge badge-green">{s}</span>)}
-                            {intent.companies.map(c => <span key={c} className="badge badge-accent">{c}</span>)}
-                            {intent.districts.map(d => <span key={d} className="badge badge-amber">{d}</span>)}
-                            {intent.cities.map(c => <span key={c} className="badge badge-amber">{c}</span>)}
+                            {(intent.skills ?? []).map(s => <span key={s} className="badge badge-green">{s}</span>)}
+                            {(intent.companies ?? []).map(c => <span key={c} className="badge badge-accent">{c}</span>)}
+                            {(intent.districts ?? []).map(d => <span key={d} className="badge badge-amber">{d}</span>)}
+                            {(intent.cities ?? []).map(c => <span key={c} className="badge badge-amber">{c}</span>)}
                             {intent.openToWork && <span className="badge badge-green">Open to Work</span>}
                             {intent.openToMentor && <span className="badge badge-surface">Mentors</span>}
                             {intent.isStudent && <span className="badge badge-surface">Students</span>}
