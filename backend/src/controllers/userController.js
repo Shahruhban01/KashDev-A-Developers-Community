@@ -2,6 +2,10 @@ const User = require('../models/User')
 const DeveloperProfile = require('../models/DeveloperProfile')
 const Project = require('../models/Project')
 const Opportunity = require('../models/Opportunity')
+const UserActivity = require('../models/UserActivity')
+const Application = require('../models/Application')
+const Follow = require('../models/Follow')
+const ProfileLike = require('../models/ProfileLike')
 
 // @desc    Get community stats
 // @route   GET /api/users/stats
@@ -94,10 +98,46 @@ const getUserByUsername = async (req, res, next) => {
   }
 }
 
+// @desc    Get current user's activity summary and recent activity
+// @route   GET /api/users/activity
+// @access  Private
+const getMyActivity = async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 20, 50)
+    const [
+      myProjects,
+      applications,
+      followers,
+      likesReceived,
+      activity,
+    ] = await Promise.all([
+      Project.countDocuments({ owner: req.user._id }),
+      Application.countDocuments({ applicant: req.user._id }),
+      Follow.countDocuments({ following: req.user._id }),
+      ProfileLike.countDocuments({ profile: req.user._id }),
+      UserActivity.find({ user: req.user._id })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+    ])
+
+    res.json({
+      success: true,
+      data: {
+        summary: { myProjects, applications, followers, likesReceived },
+        activity,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   getCommunityStats,
   getMyProfile,
   updateMyProfile,
   getSavedOpportunities,
   getUserByUsername,
+  getMyActivity,
 }

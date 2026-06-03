@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { MapPin, Briefcase, Star } from 'lucide-react'
+import { MapPin, Briefcase, Star, Heart } from 'lucide-react'
 import Avatar from './Avatar'
 import SkillTag from './SkillTag'
 import { truncate } from '../../utils/helpers'
@@ -23,7 +23,15 @@ export default function DeveloperCard({ profile }) {
             <p className="text-xs text-text-muted">@{user.username}</p>
           </div>
         </div>
-        {openToWork && <span className="badge badge-green flex-shrink-0">Open to Work</span>}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {openToWork && <span className="badge badge-green">Open to Work</span>}
+          {user.reputation > 0 && (
+            <div className="flex items-center gap-1 bg-accent/10 px-2 py-1 rounded text-xs">
+              <Heart size={11} className="text-red-500 fill-red-500" />
+              <span className="font-medium text-red-500">{user.reputation}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {user.bio && <p className="text-xs text-text-secondary leading-relaxed">{truncate(user.bio, 100)}</p>}

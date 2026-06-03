@@ -1,385 +1,346 @@
 const ForumQuestion = require('../models/ForumQuestion')
 const ForumAnswer = require('../models/ForumAnswer')
-const ForumTag = require('../models/ForumTag')
-const User = require('../models/User')
-const Report = require('../models/Report')
+const Bookmark = require('../models/Bookmark')
+const UserActivity = require('../models/UserActivity')
+const { sendNotification } = require('../socket')
 
-const REPUTATION_POINTS = {
-  askQuestion:    2,
-  answerQuestion: 5,
-  getUpvote:      10,
-  getDownvote:    -2,
-  acceptedAnswer: 15,
+const tagToView = (tag) => ({
+  _id: tag,
+  name: tag,
+  slug: tag,
+  color: '#22c55e',
+})
+
+const normalizeQuestion = (question) => {
+  const obj = typeof question.toObject === 'function' ? question.toObject() : question
+  return {
+    ...obj,
+    tags: (obj.tags || []).map(tagToView),
+    voteScore: obj.voteCount || 0,
+    viewCount: obj.views || 0,
+    acceptedAnswer: obj.isSolved,
+  }
 }
 
-const awardReputation = async (userId, type) => {
-  const points = REPUTATION_POINTS[type] || 0
-  if (points !== 0) await User.findByIdAndUpdate(userId, { $inc: { reputation: points } })
+const normalizeAnswer = (answer) => {
+  const obj = typeof answer.toObject === 'function' ? answer.toObject() : answer
+  return {
+    ...obj,
+    voteScore: obj.voteCount || 0,
+  }
 }
 
-// ── Questions ───────────────────────────────────────────────────────────────
-
+// ─── Questions ────────────────────────────────────────────────────────────────
 const getQuestions = async (req, res, next) => {
   try {
-    const { tag, sort = 'hot', page = 1, limit = 15, search } = req.query
-    const query = { isClosed: false }
-
-    if (tag) query.tagNames = tag.toLowerCase()
-    if (search) query.$text = { $search: search }
+    const { search, tag, sort = 'newest', page = 1, limit = 15 } = req.query
+    const query = { isDeleted: false }
+    if (tag) query.tags = tag
+    if (search) query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { body: { $regex: search, $options: 'i' } },
+    ]
 
     const sortMap = {
-      hot:     { hotScore: -1 },
       newest:  { createdAt: -1 },
-      votes:   { voteScore: -1 },
+      votes:   { voteCount: -1 },
+      answers: { answerCount: -1 },
+      active:  { lastActivity: -1 },
+      hot:     { voteCount: -1, views: -1, createdAt: -1 },
       unanswered: { answerCount: 1, createdAt: -1 },
     }
 
     const questions = await ForumQuestion.find(query)
       .populate('author', 'name username avatar reputation')
-      .populate('tags', 'name slug color')
-      .sort(sortMap[sort] || sortMap.hot)
+      .sort(sortMap[sort] || sortMap.newest)
       .skip((page - 1) * limit)
       .limit(Number(limit))
-      .select('-body -upvotes -downvotes -bookmarks -followers -reports')
 
     const total = await ForumQuestion.countDocuments(query)
-
-    res.json({
-      success: true,
-      data: questions,
-      pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) },
-    })
-  } catch (error) {
-    next(error)
-  }
+    res.json({ success: true, data: questions.map(normalizeQuestion), pagination: { page: Number(page), total } })
+  } catch (err) { next(err) }
 }
 
 const getQuestion = async (req, res, next) => {
   try {
-    const question = await ForumQuestion.findById(req.params.id)
-      .populate('author', 'name username avatar reputation badges')
-      .populate('tags', 'name slug color')
-      .populate('acceptedAnswer')
-
-    if (!question) { res.status(404); throw new Error('Question not found') }
-
-    // Increment view
-    question.viewCount += 1
-    question.computeHotScore()
-    await question.save()
-
-    const answers = await ForumAnswer.find({ question: question._id, isDeleted: false })
+    const q = await ForumQuestion.findOne({ _id: req.params.id, isDeleted: false })
       .populate('author', 'name username avatar reputation')
-      .populate('comments.author', 'name username avatar')
-      .sort({ isAccepted: -1, voteScore: -1 })
+    if (!q) { res.status(404); throw new Error('Question not found') }
 
-    res.json({ success: true, data: { question, answers } })
-  } catch (error) {
-    next(error)
-  }
+    q.views = (q.views || 0) + 1
+    await q.save()
+
+    const answers = await ForumAnswer.find({ question: q._id, isDeleted: false })
+      .populate('author', 'name username avatar reputation')
+      .sort({ isAccepted: -1, voteCount: -1, createdAt: 1 })
+
+    res.json({
+      success: true,
+      data: {
+        question: normalizeQuestion(q),
+        answers: answers.map(normalizeAnswer),
+      },
+    })
+  } catch (err) { next(err) }
 }
 
 const createQuestion = async (req, res, next) => {
   try {
-    const { title, body, tags = [] } = req.body
-
-    // Resolve or create tags
-    const tagDocs = []
-    for (const tagName of tags.slice(0, 5)) {
-      const slug = tagName.toLowerCase().replace(/\s+/g, '-')
-      const tag = await ForumTag.findOneAndUpdate(
-        { slug },
-        { $setOnInsert: { name: tagName.toLowerCase(), slug, description: '' }, $inc: { questionCount: 1 } },
-        { upsert: true, new: true }
-      )
-      tagDocs.push(tag)
-    }
-
-    const question = await ForumQuestion.create({
+    const { title, body, tags } = req.body
+    const q = await ForumQuestion.create({
       title, body,
+      tags: tags || [],
       author: req.user._id,
-      tags: tagDocs.map(t => t._id),
-      tagNames: tagDocs.map(t => t.name),
+    })
+    await q.populate('author', 'name username avatar reputation')
+
+    // Track activity
+    await UserActivity.create({
+      user: req.user._id,
+      type: 'ask_question',
+      targetType: 'question',
+      targetId: q._id,
+      metadata: { title, tags }
     })
 
-    await question.populate('author', 'name username avatar')
-    await question.populate('tags', 'name slug color')
-
-    // Award reputation
-    await awardReputation(req.user._id, 'askQuestion')
-
-    res.status(201).json({ success: true, data: question })
-  } catch (error) {
-    next(error)
-  }
+    res.status(201).json({ success: true, data: normalizeQuestion(q) })
+  } catch (err) { next(err) }
 }
 
 const updateQuestion = async (req, res, next) => {
   try {
-    const question = await ForumQuestion.findById(req.params.id)
-    if (!question) { res.status(404); throw new Error('Not found') }
-    if (question.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      res.status(403); throw new Error('Not authorized')
-    }
-
-    const { title, body } = req.body
-    if (title) question.title = title
-    if (body)  question.body  = body
-    question.lastActivityAt = new Date()
-    await question.save()
-
-    res.json({ success: true, data: question })
-  } catch (error) {
-    next(error)
-  }
+    const q = await ForumQuestion.findOne({ _id: req.params.id, author: req.user._id })
+    if (!q) { res.status(404); throw new Error('Not found or not authorized') }
+    Object.assign(q, req.body)
+    await q.save()
+    res.json({ success: true, data: normalizeQuestion(q) })
+  } catch (err) { next(err) }
 }
 
-const deleteQuestion = async (req, res, next) => {
+const softDeleteQuestion = async (req, res, next) => {
   try {
-    const question = await ForumQuestion.findById(req.params.id)
-    if (!question) { res.status(404); throw new Error('Not found') }
-    if (question.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      res.status(403); throw new Error('Not authorized')
-    }
-    await question.deleteOne()
-    await ForumAnswer.deleteMany({ question: req.params.id })
-    res.json({ success: true, message: 'Question deleted' })
-  } catch (error) {
-    next(error)
-  }
+    const q = await ForumQuestion.findOne({ _id: req.params.id, author: req.user._id })
+    if (!q) { res.status(404); throw new Error('Not found') }
+    q.isDeleted = true
+    q.deletedAt = new Date()
+    q.deletedBy = req.user._id
+    await q.save()
+    res.json({ success: true, message: 'Question moved to deleted (kept 30 days)' })
+  } catch (err) { next(err) }
 }
 
-const voteQuestion = async (req, res, next) => {
+const getDeletedQuestions = async (req, res, next) => {
   try {
-    const { direction } = req.body // 'up' | 'down'
-    const question = await ForumQuestion.findById(req.params.id)
-    if (!question) { res.status(404); throw new Error('Not found') }
-    if (question.author.toString() === req.user._id.toString()) {
-      res.status(400); throw new Error('Cannot vote on your own question')
-    }
-
-    const uid = req.user._id
-    const hasUp   = question.upvotes.includes(uid)
-    const hasDown = question.downvotes.includes(uid)
-
-    if (direction === 'up') {
-      if (hasUp) { question.upvotes.pull(uid); question.voteScore -= 1 }
-      else {
-        if (hasDown) { question.downvotes.pull(uid); question.voteScore += 1 }
-        question.upvotes.push(uid); question.voteScore += 1
-        await awardReputation(question.author, 'getUpvote')
-      }
-    } else {
-      if (hasDown) { question.downvotes.pull(uid); question.voteScore += 1 }
-      else {
-        if (hasUp) { question.upvotes.pull(uid); question.voteScore -= 1 }
-        question.downvotes.push(uid); question.voteScore -= 1
-        await awardReputation(question.author, 'getDownvote')
-      }
-    }
-
-    question.computeHotScore()
-    await question.save()
-    res.json({ success: true, voteScore: question.voteScore })
-  } catch (error) {
-    next(error)
-  }
+    const questions = await ForumQuestion.find({ author: req.user._id, isDeleted: true })
+      .sort({ deletedAt: -1 })
+    res.json({ success: true, data: questions })
+  } catch (err) { next(err) }
 }
 
-const bookmarkQuestion = async (req, res, next) => {
-  try {
-    const question = await ForumQuestion.findById(req.params.id)
-    if (!question) { res.status(404); throw new Error('Not found') }
-
-    const has = question.bookmarks.includes(req.user._id)
-    if (has) question.bookmarks.pull(req.user._id)
-    else     question.bookmarks.push(req.user._id)
-    await question.save()
-
-    res.json({ success: true, bookmarked: !has })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// ── Answers ──────────────────────────────────────────────────────────────────
-
+// ─── Answers ──────────────────────────────────────────────────────────────────
 const createAnswer = async (req, res, next) => {
   try {
-    const question = await ForumQuestion.findById(req.params.questionId)
-    if (!question) { res.status(404); throw new Error('Question not found') }
-    if (question.isLocked) { res.status(400); throw new Error('Question is locked') }
+    const q = await ForumQuestion.findOne({ _id: req.params.questionId, isDeleted: false })
+    if (!q) { res.status(404); throw new Error('Question not found') }
 
     const answer = await ForumAnswer.create({
-      question: question._id,
-      author: req.user._id,
+      question: q._id,
       body: req.body.body,
+      author: req.user._id,
     })
 
-    question.answerCount += 1
-    question.lastActivityAt = new Date()
-    question.computeHotScore()
-    await question.save()
+    q.answerCount = (q.answerCount || 0) + 1
+    q.lastActivity = new Date()
+    await q.save()
 
     await answer.populate('author', 'name username avatar reputation')
-    await awardReputation(req.user._id, 'answerQuestion')
 
-    res.status(201).json({ success: true, data: answer })
-  } catch (error) {
-    next(error)
-  }
-}
-
-const voteAnswer = async (req, res, next) => {
-  try {
-    const { direction } = req.body
-    const answer = await ForumAnswer.findById(req.params.answerId)
-    if (!answer) { res.status(404); throw new Error('Not found') }
-
-    const uid = req.user._id
-    const hasUp   = answer.upvotes.includes(uid)
-    const hasDown = answer.downvotes.includes(uid)
-
-    if (direction === 'up') {
-      if (hasUp) { answer.upvotes.pull(uid); answer.voteScore -= 1 }
-      else {
-        if (hasDown) { answer.downvotes.pull(uid); answer.voteScore += 1 }
-        answer.upvotes.push(uid); answer.voteScore += 1
-        await awardReputation(answer.author, 'getUpvote')
-      }
-    } else {
-      if (hasDown) { answer.downvotes.pull(uid); answer.voteScore += 1 }
-      else {
-        if (hasUp) { answer.upvotes.pull(uid); answer.voteScore -= 1 }
-        answer.downvotes.push(uid); answer.voteScore -= 1
-        await awardReputation(answer.author, 'getDownvote')
-      }
+    if (q.author.toString() !== req.user._id.toString()) {
+      await sendNotification({
+        recipient: q.author,
+        actor: req.user._id,
+        type: 'forum_answer',
+        title: `${req.user.name} answered your question`,
+        link: `/forum/${q._id}`,
+        data: { questionId: q._id, answerId: answer._id },
+      })
     }
-    await answer.save()
-    res.json({ success: true, voteScore: answer.voteScore })
-  } catch (error) {
-    next(error)
-  }
+
+    // Track activity
+    await UserActivity.create({
+      user: req.user._id,
+      type: 'answer_question',
+      targetType: 'answer',
+      targetId: answer._id,
+      metadata: { questionId: q._id, questionTitle: q.title }
+    })
+
+    res.status(201).json({ success: true, data: normalizeAnswer(answer) })
+  } catch (err) { next(err) }
 }
 
 const acceptAnswer = async (req, res, next) => {
   try {
-    const question = await ForumQuestion.findById(req.params.questionId)
-    if (!question) { res.status(404); throw new Error('Not found') }
-    if (question.author.toString() !== req.user._id.toString()) {
-      res.status(403); throw new Error('Only question author can accept an answer')
-    }
+    const q = await ForumQuestion.findOne({ _id: req.params.questionId, author: req.user._id })
+    if (!q) { res.status(403); throw new Error('Not authorized') }
 
-    const answer = await ForumAnswer.findById(req.params.answerId)
+    await ForumAnswer.updateMany({ question: q._id }, { isAccepted: false })
+    const answer = await ForumAnswer.findOneAndUpdate(
+      { _id: req.params.answerId, question: q._id, isDeleted: false },
+      { isAccepted: true },
+      { new: true }
+    )
     if (!answer) { res.status(404); throw new Error('Answer not found') }
 
-    // Unaccept previous
-    if (question.acceptedAnswer) {
-      await ForumAnswer.findByIdAndUpdate(question.acceptedAnswer, { isAccepted: false })
+    q.isSolved = true
+    await q.save()
+
+    await sendNotification({
+      recipient: answer.author,
+      actor: req.user._id,
+      type: 'answer_accepted',
+      title: `Your answer was accepted!`,
+      link: `/forum/${q._id}`,
+    })
+
+    res.json({ success: true, data: normalizeAnswer(answer) })
+  } catch (err) { next(err) }
+}
+
+// ─── Voting ───────────────────────────────────────────────────────────────────
+const voteQuestion = async (req, res, next) => {
+  try {
+    const { direction } = req.body // 'up' or 'down'
+    const vote = direction === 'up' ? 1 : direction === 'down' ? -1 : 0
+    if (!vote) {
+      res.status(400)
+      throw new Error('Vote direction must be up or down')
+    }
+    const q = await ForumQuestion.findById(req.params.id)
+    if (!q) { res.status(404); throw new Error('Not found') }
+
+    const existingVote = q.votes.find(v => v.user.toString() === req.user._id.toString())
+    if (existingVote) {
+      if (existingVote.value === vote) {
+        q.votes = q.votes.filter(v => v.user.toString() !== req.user._id.toString())
+      } else {
+        existingVote.value = vote
+      }
+    } else {
+      q.votes.push({ user: req.user._id, value: vote })
     }
 
-    answer.isAccepted = true
-    await answer.save()
+    q.voteCount = q.votes.reduce((sum, v) => sum + v.value, 0)
+    await q.save()
 
-    question.acceptedAnswer = answer._id
-    await question.save()
+    await UserActivity.create({
+      user: req.user._id,
+      type: 'upvote',
+      targetType: 'question',
+      targetId: q._id,
+      metadata: { direction, voteScore: q.voteCount },
+    })
 
-    await awardReputation(answer.author, 'acceptedAnswer')
-
-    res.json({ success: true, data: answer })
-  } catch (error) {
-    next(error)
-  }
+    res.json({ success: true, voteScore: q.voteCount })
+  } catch (err) { next(err) }
 }
 
-const addComment = async (req, res, next) => {
+const voteAnswer = async (req, res, next) => {
   try {
-    const answer = await ForumAnswer.findById(req.params.answerId)
-    if (!answer) { res.status(404); throw new Error('Not found') }
+    const { direction } = req.body // 'up' or 'down'
+    const vote = direction === 'up' ? 1 : direction === 'down' ? -1 : 0
+    if (!vote) {
+      res.status(400)
+      throw new Error('Vote direction must be up or down')
+    }
+    const a = await ForumAnswer.findOne({
+      _id: req.params.answerId,
+      ...(req.params.questionId ? { question: req.params.questionId } : {}),
+    })
+    if (!a) { res.status(404); throw new Error('Not found') }
 
-    answer.comments.push({ author: req.user._id, body: req.body.body })
-    await answer.save()
-    await answer.populate('comments.author', 'name username avatar')
+    const existingVote = a.votes.find(v => v.user.toString() === req.user._id.toString())
+    if (existingVote) {
+      if (existingVote.value === vote) {
+        a.votes = a.votes.filter(v => v.user.toString() !== req.user._id.toString())
+      } else {
+        existingVote.value = vote
+      }
+    } else {
+      a.votes.push({ user: req.user._id, value: vote })
+    }
 
-    res.json({ success: true, data: answer.comments[answer.comments.length - 1] })
-  } catch (error) {
-    next(error)
-  }
+    a.voteCount = a.votes.reduce((sum, v) => sum + v.value, 0)
+    await a.save()
+
+    await UserActivity.create({
+      user: req.user._id,
+      type: 'upvote',
+      targetType: 'answer',
+      targetId: a._id,
+      metadata: { direction, voteScore: a.voteCount, questionId: a.question },
+    })
+
+    res.json({ success: true, voteScore: a.voteCount })
+  } catch (err) { next(err) }
 }
 
-// ── Tags ──────────────────────────────────────────────────────────────────
+const bookmarkQuestion = async (req, res, next) => {
+  try {
+    const q = await ForumQuestion.findOne({ _id: req.params.id, isDeleted: false })
+    if (!q) { res.status(404); throw new Error('Question not found') }
+
+    const existing = await Bookmark.findOne({
+      user: req.user._id,
+      targetType: 'question',
+      target: q._id,
+    })
+
+    if (existing) {
+      await existing.deleteOne()
+      return res.json({ success: true, bookmarked: false })
+    }
+
+    await Bookmark.create({
+      user: req.user._id,
+      targetType: 'question',
+      target: q._id,
+      targetModel: 'ForumQuestion',
+    })
+
+    await UserActivity.create({
+      user: req.user._id,
+      type: 'bookmark',
+      targetType: 'question',
+      targetId: q._id,
+      metadata: { title: q.title },
+    })
+
+    res.json({ success: true, bookmarked: true })
+  } catch (err) { next(err) }
+}
 
 const getTags = async (req, res, next) => {
   try {
-    const { search, sort = 'popular' } = req.query
-    const query = search ? { name: new RegExp(search, 'i') } : {}
-    const sortMap = { popular: { questionCount: -1 }, name: { name: 1 } }
+    const tags = await ForumQuestion.aggregate([
+      { $match: { isDeleted: false } },
+      { $unwind: '$tags' },
+      { $group: { _id: '$tags', questionCount: { $sum: 1 } } },
+      { $sort: { questionCount: -1, _id: 1 } },
+      { $limit: 50 },
+    ])
 
-    const tags = await ForumTag.find(query).sort(sortMap[sort] || sortMap.popular).limit(50)
-    res.json({ success: true, data: tags })
-  } catch (error) {
-    next(error)
-  }
-}
-
-const getTagQuestions = async (req, res, next) => {
-  try {
-    const { page = 1, limit = 15 } = req.query
-    const tag = await ForumTag.findOne({ slug: req.params.slug })
-    if (!tag) { res.status(404); throw new Error('Tag not found') }
-
-    const questions = await ForumQuestion.find({ tagNames: tag.name, isClosed: false })
-      .populate('author', 'name username avatar')
-      .populate('tags', 'name slug color')
-      .sort({ hotScore: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .select('-body -upvotes -downvotes')
-
-    const total = await ForumQuestion.countDocuments({ tagNames: tag.name })
-
-    res.json({ success: true, data: { tag, questions }, pagination: { page: Number(page), total, pages: Math.ceil(total / limit) } })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// ── Reports ──────────────────────────────────────────────────────────────────
-
-const reportContent = async (req, res, next) => {
-  try {
-    const { targetType, targetId, reason, details } = req.body
-    const report = await Report.create({
-      reporter: req.user._id, targetType, targetId, reason, details,
+    res.json({
+      success: true,
+      data: tags.map(t => ({ ...tagToView(t._id), questionCount: t.questionCount })),
     })
-
-    // Increment report count on target
-    if (targetType === 'question') await ForumQuestion.findByIdAndUpdate(targetId, { $inc: { reportCount: 1 }, $push: { reports: report._id } })
-    if (targetType === 'answer')   await ForumAnswer.findByIdAndUpdate(targetId,   { $inc: { reportCount: 1 }, $push: { reports: report._id } })
-
-    res.status(201).json({ success: true, message: 'Report submitted' })
-  } catch (error) {
-    next(error)
-  }
-}
-
-const getReports = async (req, res, next) => {
-  try {
-    if (req.user.role !== 'admin') { res.status(403); throw new Error('Admin only') }
-    const reports = await Report.find({ status: 'pending' })
-      .populate('reporter', 'name username')
-      .sort({ createdAt: -1 })
-      .limit(50)
-    res.json({ success: true, data: reports })
-  } catch (error) {
-    next(error)
-  }
+  } catch (err) { next(err) }
 }
 
 module.exports = {
-  getQuestions, getQuestion, createQuestion, updateQuestion, deleteQuestion,
-  voteQuestion, bookmarkQuestion,
-  createAnswer, voteAnswer, acceptAnswer, addComment,
-  getTags, getTagQuestions,
-  reportContent, getReports,
+  getQuestions, getQuestion, createQuestion, updateQuestion,
+  softDeleteQuestion, getDeletedQuestions,
+  createAnswer, acceptAnswer,
+  voteQuestion, voteAnswer,
+  bookmarkQuestion, getTags,
 }

@@ -17,7 +17,6 @@ const companyProfileSchema = new mongoose.Schema({
   topSkills:         { type: [String], default: [] },
 }, { timestamps: true })
 
-companyProfileSchema.index({ slug: 1 })
 companyProfileSchema.index({ currentDevelopers: -1 })
 companyProfileSchema.index({ name: 'text' })
 

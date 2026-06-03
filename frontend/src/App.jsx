@@ -5,25 +5,30 @@ import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
 
 // Existing pages
-import Landing        from './pages/Landing'
-import Developers     from './pages/Developers'
+import Landing from './pages/Landing'
+import Developers from './pages/Developers'
 import DeveloperProfile from './pages/DeveloperProfile'
-import Projects       from './pages/Projects'
-import Opportunities  from './pages/Opportunities'
-import HallOfFame     from './pages/HallOfFame'
-import Dashboard      from './pages/Dashboard'
-import Login          from './pages/Login'
-import Register       from './pages/Register'
+import Projects from './pages/Projects'
+import Opportunities from './pages/Opportunities'
+import HallOfFame from './pages/HallOfFame'
+import Dashboard from './pages/Dashboard'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 // New pages
-import Search             from './pages/Search'
-import Companies          from './pages/Companies'
-import CompanyDetail      from './pages/CompanyDetail'
-import Forum              from './pages/Forum'
-import ForumAsk           from './pages/ForumAsk'
+import Search from './pages/Search'
+import Companies from './pages/Companies'
+import CompanyDetail from './pages/CompanyDetail'
+import Forum from './pages/Forum'
+import ForumAsk from './pages/ForumAsk'
 import ForumQuestionDetail from './pages/ForumQuestionDetail'
-import Insights           from './pages/Insights'
-import NearbyDevelopers   from './pages/NearbyDevelopers'
+import Insights from './pages/Insights'
+import NearbyDevelopers from './pages/NearbyDevelopers'
+import Messages from './pages/Messages'
+import Groups from './pages/Groups'
+import GroupDetail from './pages/GroupDetail'
+import Account from './pages/Account'
+import Popular from './pages/Popular'
 
 export default function App() {
   return (
@@ -33,32 +38,40 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             {/* Core */}
-            <Route path="/"                      element={<Landing />} />
-            <Route path="/developers"            element={<Developers />} />
-            <Route path="/developers/:username"  element={<DeveloperProfile />} />
-            <Route path="/projects"              element={<Projects />} />
-            <Route path="/opportunities"         element={<Opportunities />} />
-            <Route path="/hall-of-fame"          element={<HallOfFame />} />
-            <Route path="/dashboard"             element={<Dashboard />} />
-            <Route path="/login"                 element={<Login />} />
-            <Route path="/register"              element={<Register />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/developers" element={<Developers />} />
+            <Route path="/developers/:username" element={<DeveloperProfile />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/opportunities" element={<Opportunities />} />
+            <Route path="/hall-of-fame" element={<HallOfFame />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
             {/* Discovery */}
-            <Route path="/search"                element={<Search />} />
-            <Route path="/companies"             element={<Companies />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/companies" element={<Companies />} />
             <Route path="/companies/:companySlug" element={<CompanyDetail />} />
 
             {/* Geographic */}
-            <Route path="/developers/nearby"     element={<NearbyDevelopers />} />
+            <Route path="/developers/nearby" element={<NearbyDevelopers />} />
 
             {/* Forum */}
-            <Route path="/forum"                 element={<Forum />} />
-            <Route path="/forum/ask"             element={<ForumAsk />} />
-            <Route path="/forum/question/:id"    element={<ForumQuestionDetail />} />
-            <Route path="/forum/tag/:slug"       element={<Forum />} />
+            <Route path="/forum" element={<Forum />} />
+            <Route path="/forum/ask" element={<ForumAsk />} />
+            <Route path="/forum/question/:id" element={<ForumQuestionDetail />} />
+            <Route path="/forum/tag/:slug" element={<Forum />} />
 
             {/* Analytics */}
-            <Route path="/insights"              element={<Insights />} />
+            <Route path="/insights" element={<Insights />} />
+
+            {/* New Routes */}
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/messages/:chatId" element={<Messages />} />
+            <Route path="/groups" element={<Groups />} />
+            <Route path="/groups/:slug" element={<GroupDetail />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/popular" element={<Popular />} />
           </Routes>
         </main>
         <Footer />

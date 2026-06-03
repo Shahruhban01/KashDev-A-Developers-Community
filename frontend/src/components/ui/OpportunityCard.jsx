@@ -1,4 +1,4 @@
-import { MapPin, Clock, Building2, Bookmark } from 'lucide-react'
+import { MapPin, Clock, Building2, Bookmark, Send, Heart } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useState } from 'react'
 import api from '../../services/api'
@@ -16,6 +16,8 @@ export default function OpportunityCard({ opportunity }) {
   const { user } = useAuth()
   const config = typeConfig[opportunity.type] || typeConfig.job
   const [saved, setSaved] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [hasApplied, setHasApplied] = useState(false)
 
   const handleSave = async () => {
     if (!user) { toast.error('Login to save opportunities'); return }
@@ -24,6 +26,20 @@ export default function OpportunityCard({ opportunity }) {
       setSaved(data.saved)
       toast.success(data.saved ? 'Saved!' : 'Removed from saved')
     } catch { toast.error('Failed to save') }
+  }
+
+  const handleApply = async () => {
+    if (!user) { toast.error('Login to apply'); return }
+    setApplying(true)
+    try {
+      await api.post('/applications', { opportunityId: opportunity._id })
+      setHasApplied(true)
+      toast.success('Application submitted!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to apply')
+    } finally {
+      setApplying(false)
+    }
   }
 
   return (
@@ -58,6 +74,25 @@ export default function OpportunityCard({ opportunity }) {
           {opportunity.skills.slice(0, 4).map(s => <span key={s} className="tag">{s}</span>)}
         </div>
       )}
+
+      <div className="flex items-center justify-between pt-2 border-t border-surface-border">
+        <div className="flex items-center gap-1.5 text-xs text-text-muted">
+          {opportunity.applicants > 0 && (
+            <>
+              <span>{opportunity.applicants} applicant{opportunity.applicants !== 1 ? 's' : ''}</span>
+            </>
+          )}
+        </div>
+        {user && (
+          <button
+            onClick={handleApply}
+            disabled={applying || hasApplied}
+            className={`btn btn-sm gap-1.5 ${hasApplied ? 'btn-secondary' : 'btn-primary'}`}
+          >
+            <Send size={13} /> {hasApplied ? 'Applied' : applying ? 'Applying…' : 'Apply'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

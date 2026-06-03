@@ -6,6 +6,9 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./src/config/db');
 const errorHandler = require('./src/middleware/errorHandler');
+const http = require('http')
+const { initSocket } = require('./src/socket')
+const { startCleanupJobs } = require('./src/jobs/cleanup')
 
 const app = express();
 
@@ -36,18 +39,29 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// API Routes
+// API Routes v1
 app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/users', require('./src/routes/users'));
 app.use('/api/developers', require('./src/routes/developers'));
 app.use('/api/projects', require('./src/routes/projects'));
 app.use('/api/opportunities', require('./src/routes/opportunities'));
-// Add these lines after the existing routes in server.js
+// v2 routes
 app.use('/api/search',      require('./src/routes/search'))
 app.use('/api/forum',       require('./src/routes/forum'))
 app.use('/api/companies',   require('./src/routes/companies'))
 app.use('/api/analytics',   require('./src/routes/analytics'))
 app.use('/api/location',    require('./src/routes/location'))
+// v3 routes
+app.use('/api/chats',         require('./src/routes/chats'))
+// app.use('/api/chats', require('./src/routes/chats'))
+app.use('/api/groups',        require('./src/routes/groups'))
+app.use('/api/applications',  require('./src/routes/applications'))
+app.use('/api/notifications', require('./src/routes/notifications'))
+app.use('/api/bookmarks',     require('./src/routes/bookmarks'))
+app.use('/api/social',        require('./src/routes/social'))
+app.use('/api/profile-likes',  require('./src/routes/profileLikes'))
+app.use('/api/follow',         require('./src/routes/follow'))
+
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -61,8 +75,16 @@ app.use('*', (req, res) => {
 
 // Error Handler
 app.use(errorHandler);
+// Wrap express with HTTP server for Socket.io
+const server = http.createServer(app)
+initSocket(server)
+startCleanupJobs()
+
+// server.listen(PORT, () => {
+//   console.log(`🚀 KashDev API + Socket.io running on port ${PORT}`)
+// })
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 KashDev API running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+server.listen(PORT, () => {
+  console.log(`🚀 KashDev API + Socket.io running on port ${PORT} in ${process.env.NODE_ENV} mode`);
 });

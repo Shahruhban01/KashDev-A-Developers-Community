@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const DeveloperProfile = require('../models/DeveloperProfile');
 const Project = require('../models/Project');
+const { getFollowCounts } = require('./followController')
 
 // @desc    Get all developers
 // @route   GET /api/developers
@@ -55,15 +56,12 @@ const getDevelopers = async (req, res, next) => {
     let profiles = await DeveloperProfile.find(profileQuery)
       .populate({
         path: 'user',
-        select: 'name username bio avatar locationString location isFeatured isVerified',
-        match: Object.keys(userMatch).length ? userMatch : undefined,
+        select: 'name username bio avatar locationString location isFeatured isVerified reputation followersCount followingCount',
       })
       .sort({ createdAt: -1 })
       .limit(Number(limit) * 3) // fetch extra to account for null user filters
 
     let validProfiles = profiles.filter(p => p.user !== null)
-
-    // Attempt 2: if no results and search exists, relax — search only by user fields,
     // drop profile filters
     if (validProfiles.length === 0 && search) {
       const q = search.trim()
@@ -78,7 +76,7 @@ const getDevelopers = async (req, res, next) => {
       profiles = await DeveloperProfile.find({}) // no profile filter
         .populate({
           path: 'user',
-          select: 'name username bio avatar locationString location isFeatured isVerified',
+          select: 'name username bio avatar locationString location isFeatured isVerified reputation followersCount followingCount',
           match: relaxedUserMatch,
         })
         .sort({ createdAt: -1 })
@@ -102,7 +100,7 @@ const getDevelopers = async (req, res, next) => {
       profiles = await DeveloperProfile.find({})
         .populate({
           path: 'user',
-          select: 'name username bio avatar locationString location isFeatured isVerified',
+          select: 'name username bio avatar locationString location isFeatured isVerified reputation followersCount followingCount',
           match: { $or: wordRegexes.flatMap(r => r.$or) },
         })
         .sort({ createdAt: -1 })
@@ -143,6 +141,9 @@ const getDeveloperByUsername = async (req, res, next) => {
 
     const profile = await DeveloperProfile.findOne({ user: user._id });
     const projects = await Project.find({ owner: user._id, status: 'active' }).sort({ createdAt: -1 });
+    const followCounts = await getFollowCounts(user._id)
+    user.followersCount = followCounts.followersCount
+    user.followingCount = followCounts.followingCount
 
     // Increment profile views
     if (profile) {

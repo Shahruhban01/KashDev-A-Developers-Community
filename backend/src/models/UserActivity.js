@@ -5,7 +5,8 @@ const userActivitySchema = new mongoose.Schema({
   type: {
     type: String,
     enum: ['view_profile', 'view_project', 'like_project', 'save_opportunity',
-           'ask_question', 'answer_question', 'upvote', 'search', 'follow'],
+           'ask_question', 'answer_question', 'upvote', 'search', 'follow',
+           'bookmark'],
     required: true,
   },
   targetType: { type: String }, // 'user', 'project', 'opportunity', 'question'

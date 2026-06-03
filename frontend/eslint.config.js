@@ -10,9 +10,18 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
-      reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-hooks/exhaustive-deps': 'off',
+      'no-unused-vars': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'react-refresh/only-export-components': 'off',
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },

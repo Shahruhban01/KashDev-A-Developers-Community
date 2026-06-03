@@ -43,6 +43,7 @@ const {
   updateMyProfile,
   getSavedOpportunities,
   getUserByUsername,
+  getMyActivity,
 } = require('../controllers/userController')
 const { protect } = require('../middleware/auth')
 
@@ -50,6 +51,7 @@ router.get('/stats',              getCommunityStats)
 router.get('/me',        protect, getMyProfile)
 router.put('/me',        protect, updateMyProfile)
 router.get('/saved',     protect, getSavedOpportunities)
+router.get('/activity',  protect, getMyActivity)
 router.get('/:username',          getUserByUsername)
 
 module.exports = router
