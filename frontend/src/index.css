@@ -1,0 +1,290 @@
+/* ============================================================
+   KashDev Design System
+   Art direction: developer community → focused, premium dark
+   Palette: near-black surfaces, teal/indigo accent
+   Typography: Geist (display) + Inter (body)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=geist@400,500,600,700,800,900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Fonts */
+  --font-display: 'Geist', 'Inter', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+
+  /* Type scale (fluid) */
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+  --text-2xl:  clamp(2rem,     1.2rem  + 2.5vw,  3.5rem);
+
+  /* Spacing (4px base) */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* Radius */
+  --radius-sm:   0.375rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --t: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Dark surfaces (primary theme) */
+  --color-bg:        #0d0d0f;
+  --color-surface-0: #0d0d0f;
+  --color-surface-1: #111113;
+  --color-surface-2: #161618;
+  --color-surface-3: #1c1c1f;
+  --color-surface-4: #222226;
+  --color-surface-5: #2a2a2e;
+  --color-border:    #2e2e32;
+  --color-border-2:  #3a3a3f;
+
+  /* Text */
+  --color-text-primary:   #ededee;
+  --color-text-secondary: #a0a0ab;
+  --color-text-muted:     #6e6e7a;
+  --color-text-faint:     #44444c;
+
+  /* Accent — teal/indigo */
+  --color-accent:          #5b8af0;
+  --color-accent-hover:    #7aa0f4;
+  --color-accent-subtle:   rgba(91, 138, 240, 0.1);
+  --color-accent-muted:    rgba(91, 138, 240, 0.25);
+  --color-accent-text:     #93b4f7;
+
+  /* Semantic */
+  --color-green:      #3dd68c;
+  --color-green-sub:  rgba(61, 214, 140, 0.12);
+  --color-amber:      #f5a623;
+  --color-amber-sub:  rgba(245, 166, 35, 0.12);
+  --color-red:        #f06f6f;
+  --color-red-sub:    rgba(240, 111, 111, 0.12);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+
+  /* Content widths */
+  --content-sm:  640px;
+  --content-md:  960px;
+  --content-lg:  1200px;
+
+    /* RGB channels for Tailwind /opacity modifier support */
+  --color-accent-rgb: 91, 138, 240;
+  --color-green-rgb:  61, 214, 140;
+  --color-amber-rgb:  245, 166, 35;
+  --color-red-rgb:    240, 111, 111;
+}
+
+/* ── Base Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--space-16);
+}
+
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  line-height: 1.6;
+}
+
+img, video, canvas { display: block; max-width: 100%; height: auto; }
+input, button, textarea, select { font: inherit; color: inherit; }
+h1, h2, h3, h4, h5, h6 { text-wrap: balance; line-height: 1.15; }
+p { text-wrap: pretty; }
+
+::selection {
+  background: rgba(91, 138, 240, 0.3);
+  color: #ededee;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Component Layer ────────────────────────────────────────── */
+@layer components {
+
+  /* CARDS */
+  .card {
+    @apply bg-surface-2 border border-surface-border rounded-xl;
+  }
+  .card-hover {
+    @apply transition-all duration-150 hover:border-surface-border-2 hover:bg-surface-3 cursor-pointer;
+  }
+
+  /* BUTTONS */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-medium rounded-lg
+           transition-all duration-150 select-none cursor-pointer border
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    font-size: var(--text-sm);
+  }
+  .btn-sm  { @apply px-3 py-1.5 text-xs rounded-lg; }
+  .btn-md  { @apply px-4 py-2; }
+  .btn-lg  { @apply px-5 py-2.5 text-sm; }
+
+  .btn-primary {
+    @apply bg-accent text-white border-accent
+           hover:bg-accent-hover hover:border-accent-hover
+           active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply bg-surface-3 text-text-secondary border-surface-border
+           hover:text-text-primary hover:border-surface-border-2 hover:bg-surface-4;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-text-muted border-transparent
+           hover:text-text-primary hover:bg-surface-3;
+  }
+
+  /* INPUTS */
+/* INPUTS */
+  /* INPUTS */
+  .input {
+    @apply w-full bg-surface-3 border border-surface-border rounded-lg
+           px-3 py-2 text-sm text-text-primary placeholder:text-text-faint
+           transition-all duration-150;
+    outline: none;
+  }
+  .input:focus {
+    border-color: rgba(var(--color-accent-rgb), 0.5);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.15);
+  }
+
+  /* BADGES — use /opacity modifier now that RGB channels are defined */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+           text-[11px] font-medium border;
+  }
+  .badge-accent  { @apply bg-accent-subtle border-accent-muted text-accent-text; }
+  .badge-green   { @apply bg-green/10 border-green/20 text-green; }
+  .badge-amber   { @apply bg-amber/10 border-amber/20 text-amber; }
+  .badge-surface { @apply bg-surface-4 border-surface-border-2 text-text-muted; }
+
+  /* TAGS */
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 bg-surface-3 border border-surface-border
+           rounded-md text-[11px] text-text-muted font-medium;
+  }
+
+  /* DIVIDER */
+  .divider { @apply border-t border-surface-border; }
+
+  /* SKELETON */
+  .skeleton {
+    @apply rounded-lg;
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-3) 25%,
+      var(--color-surface-4) 50%,
+      var(--color-surface-3) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* SECTION TYPOGRAPHY */
+  .section-title {
+    @apply font-display font-bold text-text-primary;
+    font-size: var(--text-xl);
+    line-height: 1.2;
+  }
+  .section-sub {
+    @apply text-sm text-text-secondary mt-1;
+  }
+
+  /* GRADIENT TEXT */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #5b8af0 0%, #93b4f7 50%, #a5c8ff 100%);
+  }
+}
+
+/* ── Utility Layer ──────────────────────────────────────────── */
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Semantic color shortcuts used in JSX classNames */
+  .text-accent      { color: var(--color-accent); }
+  .text-accent-text { color: var(--color-accent-text); }
+  .text-green       { color: var(--color-green); }
+  .text-amber       { color: var(--color-amber); }
+  .fill-amber       { fill: var(--color-amber); }
+  .text-red-text    { color: var(--color-red); }
+  .bg-accent        { background-color: var(--color-accent); }
+  .bg-accent-subtle { background-color: var(--color-accent-subtle); }
+  .bg-accent-hover  { background-color: var(--color-accent-hover); }
+  .border-accent    { border-color: var(--color-accent); }
+  .border-accent-hover { border-color: var(--color-accent-hover); }
+  .border-accent-muted { border-color: var(--color-accent-muted); }
+  .bg-green-sub     { background-color: var(--color-green-sub); }
+  .bg-amber-sub     { background-color: var(--color-amber-sub); }
+  .bg-red-muted     { background-color: var(--color-red-sub); }
+  .text-amber-text  { color: var(--color-amber); }
+  .text-amber-muted { color: rgba(245,166,35,0.7); }
+  .bg-amber-muted   { background-color: var(--color-amber-sub); }
+
+  /* Animations */
+  .animate-fade-in    { animation: fadeIn 0.25s ease forwards; }
+  .animate-slide-up   { animation: slideUp 0.2s ease forwards; }
+  .animate-scale-in   { animation: scaleIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards; }
+}
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
