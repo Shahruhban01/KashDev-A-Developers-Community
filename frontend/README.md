@@ -509,7 +509,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://kashdev-a-developers-community.onrender.com',
         changeOrigin: true,
       },
     },

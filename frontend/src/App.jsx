@@ -29,6 +29,9 @@ import Groups from './pages/Groups'
 import GroupDetail from './pages/GroupDetail'
 import Account from './pages/Account'
 import Popular from './pages/Popular'
+import Waitlist from './pages/Waitlist'
+import WaitlistAdmin from './pages/admin/WaitlistAdmin'
+import WaitlistAnalytics from './pages/admin/WaitlistAnalytics'
 
 export default function App() {
   return (
@@ -72,6 +75,13 @@ export default function App() {
             <Route path="/groups/:slug" element={<GroupDetail />} />
             <Route path="/account" element={<Account />} />
             <Route path="/popular" element={<Popular />} />
+
+            {/* Waitlist */}
+            <Route path="/waitlist" element={<Waitlist />} />
+
+            {/* Admin */}
+            <Route path="/admin/waitlist" element={<WaitlistAdmin />} />
+            <Route path="/admin/waitlist/analytics" element={<WaitlistAnalytics />} />
           </Routes>
         </main>
         <Footer />

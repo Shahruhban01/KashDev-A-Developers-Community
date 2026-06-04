@@ -61,6 +61,7 @@ app.use('/api/bookmarks',     require('./src/routes/bookmarks'))
 app.use('/api/social',        require('./src/routes/social'))
 app.use('/api/profile-likes',  require('./src/routes/profileLikes'))
 app.use('/api/follow',         require('./src/routes/follow'))
+app.use('/api/waitlist',       require('./src/routes/waitlist'))
 
 
 // Health Check
